@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-在 VS Code 中运行 [DeepSeek Harness](../../README.md) Agent。扩展会启动并管理一个本地 `dsh web` 后端，并在编辑器面板中内嵌完整的 Harness Web UI（聊天、工具卡片、审批、工作区、会话、模型/密钥、子代理、目标、计划模式、设置）——即 `dsh web` 所提供的同一套 UI，原样复用。
+在 VS Code 中运行 [DeepSeek Harness](../../README.zh.md) Agent。扩展会启动并管理一个本地 `dsh web` 后端，并在编辑器面板中内嵌完整的 Harness Web UI（聊天、工具卡片、审批、工作区、会话、模型/密钥、子代理、目标、计划模式、设置）——即 `dsh web` 所提供的同一套 UI，原样复用。
 
 ## 工作原理
 

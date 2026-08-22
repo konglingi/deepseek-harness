@@ -3,4 +3,4 @@
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write extensions/vscode/README.md
 README.md: 90bcbdf8619f542db148b0c22c179d550e96f950
-README.zh.md: 0fed1f361237a4a404bb32cb375327f8c7436686
+README.zh.md: 2bf276fd134b0914b443ed936128112baebc839d

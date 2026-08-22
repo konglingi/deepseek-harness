@@ -10,7 +10,7 @@ Status: proposed
 
 ## Proposal
 
-在 [extensions/vscode](../../../../extensions/vscode/README.md) 发布一个 VS Code 扩展，复用现有 Web UI 而非重建。扩展承担两项职责：管理一个本地后端进程，并内嵌 Web UI。
+在 [extensions/vscode](../../../../extensions/vscode/README.zh.md) 发布一个 VS Code 扩展，复用现有 Web UI 而非重建。扩展承担两项职责：管理一个本地后端进程，并内嵌 Web UI。
 
 扩展启动 `dsh web`（命令可配置），强制附加 `--host 127.0.0.1` 与 `--port`，并通过匹配进程 stdout 的 `dsh web: http://127.0.0.1:<port>` 行获知绑定 URL。随后打开一个 Webview 编辑器面板，其 `<iframe>` 经 `vscode.env.asExternalUri` 加载该 URL，于是未改动的 Web UI 在 VS Code 内运行，并通过其常规的 HTTP + WebSocket `/api` 传输与后端通信（[契约](../../../../packages/host/apiproxy/src/api/rpc.ts)，浏览器入口 [apps/web/src/main.ts](../../../../apps/web/src/main.ts)）。DeepSeek API Key 通过内嵌的 Models 页录入，因此后端无需凭据即可启动。
 
@@ -18,7 +18,7 @@ Status: proposed
 
 ## Alternatives considered
 
-- **基于 JSON-RPC SDK 的 VS Code 原生 UI。** 用原生或自建 Webview 重写聊天、工具卡片、审批、会话与设置，由 [packages/sdk](../../../../packages/sdk/README.md) 驱动。首版否决：它会重建整个 `packages/client/ui-*` 层，且 stdio SDK 目前缺少线上审批与中途取消，无法达到对齐。
+- **基于 JSON-RPC SDK 的 VS Code 原生 UI。** 用原生或自建 Webview 重写聊天、工具卡片、审批、会话与设置，由 [packages/sdk](../../../../packages/sdk/README.zh.md) 驱动。首版否决：它会重建整个 `packages/client/ui-*` 层，且 stdio SDK 目前缺少线上审批与中途取消，无法达到对齐。
 - **Agent Client Protocol。** 驱动仅供自动化的 ACP 服务器。否决：ACP 仅供自动化、只回传已提交的助手文本，没有会话加载/列举、模型/模式选择、工具卡片或审批，无法支撑完整 UI。
 - **由扩展自行托管构建后的前端。** 打包 `apps/web/dist` 并连接到某个 host 的 `/api`。否决：相比把 iframe 指向受管的 `dsh web`（其本就提供该前端与插件包），这样做工作量更大且无对齐收益。
 - **将扩展放在 `packages/` 或 `apps/` 下。** 否决：`packages/extensions/` 已表示 Cordis 动态插件包，而 `apps/*` 发布成员带有 publint/版本/发布策略。顶层 `extensions/` 目录标示编辑器集成边界，且不继承这些门禁。

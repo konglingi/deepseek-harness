@@ -3,4 +3,4 @@
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-08-22-vscode-extension-webview-reuse.md
 2026-08-22-vscode-extension-webview-reuse.md: d73cef919f48add5e4413a807a487f570bd799bd
-2026-08-22-vscode-extension-webview-reuse.zh.md: 1964fb20dbb0152ffad7471a18a3c79d188ea751
+2026-08-22-vscode-extension-webview-reuse.zh.md: 627e90960b587851ff5acf7ea9edf94977d6aa72
