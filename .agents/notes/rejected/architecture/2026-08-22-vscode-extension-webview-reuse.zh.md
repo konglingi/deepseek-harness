@@ -1,6 +1,6 @@
 # Agent Note: VS Code extension reuses the Web UI over a managed backend
 
-Status: proposed
+Status: rejected — 在第一条提示词之前先启动 web 服务器、再提供由插件组合出的 React 客户端，是编辑器可能有的最慢启动，而跨源 iframe 触及不到已打开的项目、活动编辑器与 `acquireVsCodeApi`；由[原生 chat participant](../../implemented/architecture/2026-08-22-vscode-native-chat-over-sdk-jsonrpc.zh.md)取代
 
 [English](2026-08-22-vscode-extension-webview-reuse.md) | 中文
 

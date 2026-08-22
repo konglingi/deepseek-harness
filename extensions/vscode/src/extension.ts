@@ -1,57 +1,55 @@
 import * as vscode from 'vscode'
-import { BackendManager } from './backend'
-import { HarnessPanel } from './panel'
-import { HarnessViewProvider } from './view'
+import { registerChatParticipant } from './chat'
+import { HarnessRuntime } from './runtime'
+import { SessionTracker } from './sessions'
 
-/** Activate the extension: wire the backend manager, views, commands, and status bar. */
+/** Activate the extension: the runtime process, the chat participant, commands, and status bar. */
 export function activate(context: vscode.ExtensionContext): void {
-  const backend = new BackendManager()
-  context.subscriptions.push(backend)
+  const runtime = new HarnessRuntime()
+  const sessions = new SessionTracker()
+  context.subscriptions.push(runtime)
 
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
-  statusBar.command = 'dsh.open'
+  statusBar.command = 'dsh.showLogs'
   const renderStatusBar = (): void => {
-    const { state, url, message } = backend.status
+    const { state, message } = runtime.status
     statusBar.text = `${STATUS_ICON[state]} Harness`
-    statusBar.tooltip = state === 'ready'
-      ? `DeepSeek Harness backend: ${url ?? ''}`
-      : `DeepSeek Harness backend: ${state}${message !== undefined ? ` — ${message}` : ''}`
+    statusBar.tooltip = `DeepSeek Harness runtime: ${state}${message === undefined ? '' : ` — ${message}`}`
     statusBar.show()
   }
   renderStatusBar()
-  context.subscriptions.push(statusBar, backend.onDidChangeStatus(renderStatusBar))
+  context.subscriptions.push(statusBar, runtime.onDidChangeStatus(renderStatusBar))
 
-  const view = new HarnessViewProvider(backend)
   context.subscriptions.push(
-    view,
-    vscode.window.registerWebviewViewProvider(HarnessViewProvider.viewType, view),
-    vscode.commands.registerCommand('dsh.open', () => HarnessPanel.createOrShow(backend)),
-    vscode.commands.registerCommand('dsh.restartBackend', () =>
+    registerChatParticipant(context, runtime, sessions),
+    vscode.commands.registerCommand('dsh.newSession', () => {
+      sessions.reset()
+      void vscode.window.showInformationMessage('The next DeepSeek Harness request starts a new session.')
+    }),
+    vscode.commands.registerCommand('dsh.restartRuntime', () =>
       vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'Restarting DeepSeek Harness backend…' },
-        async () => { await backend.restart() },
+        { location: vscode.ProgressLocation.Notification, title: 'Restarting the DeepSeek Harness runtime…' },
+        async () => {
+          sessions.reset()
+          await runtime.restart()
+        },
       )),
-    vscode.commands.registerCommand('dsh.stopBackend', () => { backend.stop() }),
-    vscode.commands.registerCommand('dsh.showLogs', () => { backend.showLogs() }),
+    vscode.commands.registerCommand('dsh.stopRuntime', () => { runtime.stop() }),
+    vscode.commands.registerCommand('dsh.showLogs', () => { runtime.showLogs() }),
   )
 
-  const autoStart = vscode.workspace.getConfiguration('dsh').get<boolean>('backend.autoStart', true)
+  const autoStart = vscode.workspace.getConfiguration('dsh').get<boolean>('runtime.autoStart', true)
   if (autoStart) {
-    void backend.ensureStarted().catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error)
-      void vscode.window.showErrorMessage(
-        `DeepSeek Harness backend failed to start: ${message}`,
-        'Show Logs',
-      ).then((choice) => {
-        if (choice === 'Show Logs') backend.showLogs()
-      })
-    })
+    // Booting alongside activation overlaps the runtime's start with the user
+    // opening chat and typing; a failure is reported by the first request that
+    // needs it, so activation stays quiet apart from the status bar.
+    void runtime.ensureStarted().catch(() => {})
   }
 }
 
-/** Deactivate the extension. The backend is disposed via context subscriptions. */
+/** Deactivate the extension. The runtime is disposed via context subscriptions. */
 export function deactivate(): void {
-  // Nothing to do: BackendManager.dispose() runs through context.subscriptions.
+  // Nothing to do: HarnessRuntime.dispose() runs through context.subscriptions.
 }
 
 const STATUS_ICON: Record<string, string> = {

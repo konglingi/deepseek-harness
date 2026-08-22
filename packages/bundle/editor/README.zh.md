@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-以 profile bundle（配置包）形式提供的编辑器界面：[`cordis.patch.yml`](cordis.patch.yml) 在 [`dsh-base`](../base/README.zh.md) 层之上挂载 [`dsh-sdk-jsonrpc-server`](../../sdk/server/README.zh.md)，因此 `dsh --profile editor` 是一个只在 stdio 上讲 [SDK 协议](../../sdk/protocol/README.zh.md) 的 harness 运行时。它的客户端是编辑器扩展——[`extensions/vscode`](../../../extensions/vscode/README.zh.md) 是随附的那一个——由扩展启动该运行时、驱动轮次，并把会话事件流渲染到编辑器自带的聊天 UI 中。此包没有运行时 API；profile 组合器通过 `dsh.bundle.patch` 清单字段解析该 patch，而非通过代码。
+以 profile bundle（配置包）形式提供的编辑器界面：[`cordis.patch.yml`](cordis.patch.yml) 把 [`dsh-sdk-jsonrpc-server`](../../sdk/server/README.zh.md) 挂载到 [`dsh-base`](../base/README.zh.md) 层之上，因此 `dsh --profile editor` 是一个只在 stdio 上讲 [SDK 协议](../../sdk/protocol/README.zh.md) 的 harness 运行时。它的客户端是编辑器扩展——[`extensions/vscode`](../../../extensions/vscode/README.zh.md) 是随附的那一个——由扩展启动该运行时、驱动轮次，并把会话事件流渲染到编辑器自带的聊天 UI 中。此包没有运行时 API；profile 组合器通过 `dsh.bundle.patch` 清单字段解析该 patch，而非通过代码。
 
 `dsh --profile editor` 不启动 HTTP 服务器、不提供前端、也不挂载终端 UI，因此其插件树完成加载后即达到就绪。stdout 只承载 JSON-RPC 帧；诊断信息应走 stderr，而添加 stdout 日志器的 profile 层会破坏协议通道。
 
