@@ -292,7 +292,7 @@ export class HarnessRuntime implements vscode.Disposable {
  * @param sessionId - the session being followed.
  * @returns `true` when the subscriber for `sessionId` should see it.
  */
-export function belongsToSession(notification: HarnessNotification, sessionId: string): boolean {
+function belongsToSession(notification: HarnessNotification, sessionId: string): boolean {
   const params = notification.params
   return params.sessionId === sessionId || params.parentSessionId === sessionId
 }

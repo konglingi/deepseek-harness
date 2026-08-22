@@ -40,6 +40,8 @@ Status: implemented
 
 启动耗时就只有运行时的插件树，agent 从第一个请求起就在已打开的项目上工作。扩展比它取代的 webview 版本更小：一个进程管理器、一个行协议 peer，以及三个纯模块（提示词组装、事件渲染、会话标识），`extensions/vscode/tests` 无需 VS Code 宿主即可覆盖它们——57 个单元测试覆盖 argv/环境处理、帧关联与超时、事件到聊天的投影、路径附件与会话铸造。
 
+`apps/cli/tests/editor-profile.spec.ts` 以无密钥方式钉住另一半：它从源码启动随附的 profile，并驱动扩展所讲的协议——握手、`session/cancel`、`shutdown`、退出码 0——断言 stdout 只承载了三个响应帧、别无其他，因此挂载了 stdout 日志器的组合会在那里失败，而不是在编辑器里失败。
+
 Web UI 仍然拥有：作为交互的审批、带参数与差异的工具卡片、会话列表与恢复、模型与模式选择器、工作区与目标。聊天界面会报告工具失败与轮次结果，但不提供这些界面；`dsh web` 仍是同一份会话日志之上的全功能客户端。多根窗口绑定到第一个文件夹。
 
-覆盖缺口：没有测试驱动真实的 `vscode.chat` 请求（该 API 需要运行中的编辑器），participant 注册、状态栏与命令接线通过 Extension Development Host 手动验证。Python SDK 尚未暴露 `session/cancel`；它镜像该协议，可在出现交互式 Python 消费者时补上该方法。
+覆盖缺口：没有测试驱动真实的 `vscode.chat` 请求（该 API 需要运行中的编辑器），因此 participant 注册、状态栏与命令接线通过 Extension Development Host 手动验证。SDK 快照套件（`examples/jsonrpc-agent/tests`）没有取消场景：中断一次回放轮次需要该套件提供流中取消的钩子并重新录制 fixture，而取消在回放中落点的时机并不是稳定的期望输出。Python SDK 尚未暴露 `session/cancel`；它镜像该协议，可在出现交互式 Python 消费者时补上该方法。

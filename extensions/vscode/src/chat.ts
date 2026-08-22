@@ -6,7 +6,7 @@ import type { HarnessRuntime } from './runtime'
 import type { SessionTracker } from './sessions'
 
 /** The participant id declared in `contributes.chatParticipants`. */
-export const PARTICIPANT_ID = 'deepseek.harness'
+const PARTICIPANT_ID = 'deepseek.harness'
 
 /**
  * Register the chat participant that runs harness turns. The handler owns one
@@ -109,7 +109,7 @@ function chatSink(stream: vscode.ChatResponseStream): ChatSink {
  * @param request - the chat request being answered.
  * @returns the prompt input for {@link buildPromptBlocks}.
  */
-export function promptInput(request: vscode.ChatRequest): PromptInput {
+function promptInput(request: vscode.ChatRequest): PromptInput {
   const attachments = request.references
     .map(reference => toAttachment(reference.value))
     .filter((attachment): attachment is PromptAttachment => attachment !== undefined)

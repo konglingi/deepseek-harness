@@ -642,7 +642,6 @@
     },
     "extensions/vscode": {
       "entry": [
-        "src/extension.ts",
         "tests/**/*.spec.ts"
       ],
       "project": [
@@ -663,6 +662,11 @@
     "packages/bundle/base": {
       "ignoreDependencies": [
         "@deepseek-ai/.+"
+      ]
+    },
+    "packages/bundle/editor": {
+      "ignoreDependencies": [
+        "@deepseek-ai/dsh-sdk-jsonrpc-server"
       ]
     },
     "packages/bundle/headless": {
