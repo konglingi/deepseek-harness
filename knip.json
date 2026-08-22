@@ -740,6 +740,11 @@
         "@deepseek-ai/.+"
       ]
     },
+    "extensions/vscode": {
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
     "packages/client/modules": {
       "entry": [
         "tests/**/*.spec.ts"

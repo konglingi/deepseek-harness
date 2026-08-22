@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": [
+      "node",
+      "vscode"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}

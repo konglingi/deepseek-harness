@@ -1,0 +1,125 @@
+{
+  "name": "dsh-vscode",
+  "displayName": "DeepSeek Harness",
+  "description": "Run the DeepSeek Harness agent inside VS Code. The extension manages a local dsh backend and embeds the full Harness Web UI.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "deepseek-ai",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "extensions/vscode"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:dsh.landing",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dsh",
+          "title": "DeepSeek Harness",
+          "icon": "media/harness.svg"
+        }
+      ]
+    },
+    "views": {
+      "dsh": [
+        {
+          "id": "dsh.landing",
+          "name": "DeepSeek Harness",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "dsh.open",
+        "title": "Open Panel",
+        "category": "DeepSeek Harness"
+      },
+      {
+        "command": "dsh.restartBackend",
+        "title": "Restart Backend",
+        "category": "DeepSeek Harness"
+      },
+      {
+        "command": "dsh.stopBackend",
+        "title": "Stop Backend",
+        "category": "DeepSeek Harness"
+      },
+      {
+        "command": "dsh.showLogs",
+        "title": "Show Backend Logs",
+        "category": "DeepSeek Harness"
+      }
+    ],
+    "configuration": {
+      "title": "DeepSeek Harness",
+      "properties": {
+        "dsh.backend.command": {
+          "type": "string",
+          "default": "dsh",
+          "markdownDescription": "Executable used to launch the backend. Defaults to `dsh` (must be on PATH). When developing inside the deepseek-harness monorepo, set this to `node` and use `#dsh.backend.args#` to point at the workspace CLI, e.g. `apps/cli/lib/bin.js`."
+        },
+        "dsh.backend.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "web"
+          ],
+          "markdownDescription": "Arguments passed to `#dsh.backend.command#`. Must launch the Harness web server (the `web` subcommand). `--host 127.0.0.1` and `--port <port>` are appended automatically when not already present."
+        },
+        "dsh.backend.port": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Port for the backend web server. `0` picks a free port automatically."
+        },
+        "dsh.backend.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the backend automatically when the extension activates."
+        },
+        "dsh.backend.cwd": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Working directory for the backend process. Empty uses the first open workspace folder, so the in-app directory picker starts there."
+        },
+        "dsh.backend.env": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "markdownDescription": "Extra environment variables for the backend process (for example `DEEPSEEK_BASE_URL`). The API key is normally entered in the embedded Models page instead."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "package": "node esbuild.js --production && npx --yes @vscode/vsce@3 package --no-dependencies --allow-missing-repository -o dsh-vscode.vsix",
+    "vscode:prepublish": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "@types/vscode": "1.90.0",
+    "esbuild": "0.25.12",
+    "typescript": "^6.0.3"
+  }
+}

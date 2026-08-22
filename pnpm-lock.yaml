@@ -741,6 +741,21 @@ importers:
         specifier: workspace:*
         version: link:../packages/workflow/workflow-worker-thread
 
+  extensions/vscode:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.0
+        version: 22.20.0
+      '@types/vscode':
+        specifier: 1.90.0
+        version: 1.90.0
+      esbuild:
+        specifier: 0.25.12
+        version: 0.25.12
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   native/landlock-run:
     devDependencies:
       '@deepseek-ai/node-addon-landlock-run':
@@ -11342,6 +11357,9 @@ packages:
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
 
+  '@types/vscode@1.90.0':
+    resolution: {integrity: sha512-oT+ZJL7qHS9Z8bs0+WKf/kQ27qWYR3trsXpq46YDjFqBsMLG4ygGGjPaJ2tyrH0wJzjOEmDyg9PDJBBhWg9pkQ==}
+
   '@types/web-bluetooth@0.0.21':
     resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
 
@@ -16448,6 +16466,8 @@ snapshots:
   '@types/turndown@5.0.6': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/vscode@1.90.0': {}
 
   '@types/web-bluetooth@0.0.21': {}
 
