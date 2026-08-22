@@ -641,8 +641,13 @@
       ]
     },
     "extensions/vscode": {
+      "entry": [
+        "src/extension.ts",
+        "tests/**/*.spec.ts"
+      ],
       "project": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "tests/**/*.ts"
       ]
     },
     "packages/subagent/subagent-dsh-sdk": {

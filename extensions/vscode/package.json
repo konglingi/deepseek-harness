@@ -71,7 +71,7 @@
         "dsh.backend.command": {
           "type": "string",
           "default": "dsh",
-          "markdownDescription": "Executable used to launch the backend. Defaults to `dsh` (must be on PATH). When developing inside the deepseek-harness monorepo, set this to `node` and use `#dsh.backend.args#` to point at the workspace CLI, e.g. `apps/cli/lib/bin.js`."
+          "markdownDescription": "Executable used to launch the backend. Defaults to `dsh` (must be on PATH). `${workspaceFolder}` is expanded to the first workspace folder. When developing inside the deepseek-harness monorepo, set this to `node` and use `#dsh.backend.args#` to point at the workspace CLI."
         },
         "dsh.backend.args": {
           "type": "array",
@@ -81,7 +81,7 @@
           "default": [
             "web"
           ],
-          "markdownDescription": "Arguments passed to `#dsh.backend.command#`. Must launch the Harness web server (the `web` subcommand). `--host 127.0.0.1` and `--port <port>` are appended automatically when not already present."
+          "markdownDescription": "Arguments passed to `#dsh.backend.command#`. Must launch the Harness web server (the `web` subcommand). `--no-open`, `--host 127.0.0.1`, and `--port <port>` are appended automatically when not already present. `${workspaceFolder}` is expanded in each argument."
         },
         "dsh.backend.port": {
           "type": "number",
@@ -96,7 +96,13 @@
         "dsh.backend.cwd": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Working directory for the backend process. Empty uses the first open workspace folder, so the in-app directory picker starts there."
+          "markdownDescription": "Working directory for the backend process. Empty uses the first open workspace folder, so the in-app directory picker starts there. `${workspaceFolder}` is expanded."
+        },
+        "dsh.backend.readyTimeoutMs": {
+          "type": "number",
+          "default": 120000,
+          "minimum": 1000,
+          "markdownDescription": "How long to wait for the backend to print its `dsh web:` URL or accept HTTP on the bound loopback port before reporting a start failure. Increase this for a slow source (`tsx`) launch."
         },
         "dsh.backend.env": {
           "type": "object",

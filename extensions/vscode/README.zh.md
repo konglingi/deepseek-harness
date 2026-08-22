@@ -6,8 +6,8 @@
 
 ## 工作原理
 
-1. 激活时，扩展通过运行所配置的命令（默认 `dsh web`）启动后端，并追加 `--host 127.0.0.1` 与一个 `--port`。
-2. 它解析后端输出的 `dsh web: http://127.0.0.1:<port>` 行以获知 URL。
+1. 激活时，扩展通过运行所配置的命令（默认 `dsh web`）启动后端，并追加 `--no-open`、`--host 127.0.0.1` 与一个 `--port`。
+2. 当 stdout 打印 `dsh web: http://127.0.0.1:<port>`，或该 loopback 端口开始接受 HTTP 时（以先发生者为准），扩展将后端视为就绪；若在 `dsh.backend.readyTimeoutMs` 内两者都未发生，则报启动失败。
 3. **Open DeepSeek Harness** 操作会打开一个 Webview 面板，其 iframe 通过 `vscode.env.asExternalUri` 加载该 URL，于是整套 Web UI 在 VS Code 内运行，并通过其常规的 HTTP + WebSocket `/api` 传输与后端通信。
 
 DeepSeek API Key 在内嵌的 **Models** 页中录入，与浏览器 Web UI 完全一致；启动后端本身无需密钥。
@@ -21,12 +21,15 @@ DeepSeek API Key 在内嵌的 **Models** 页中录入，与浏览器 Web UI 完�
 
 ## 设置
 
-- `dsh.backend.command`（默认 `dsh`）：后端可执行文件。需在 `PATH` 中，或指向一个启动器（见下文）。
-- `dsh.backend.args`（默认 `["web"]`）：传入的参数；必须启动 `web` 服务。`--host`/`--port` 会自动追加。
+- `dsh.backend.command`（默认 `dsh`）：后端可执行文件。需在 `PATH` 中，或指向一个启动器。`${workspaceFolder}` 会展开为第一个工作区文件夹。
+- `dsh.backend.args`（默认 `["web"]`）：传入的参数；必须启动 `web` 服务。`--no-open`/`--host`/`--port` 会自动追加。每个参数中的 `${workspaceFolder}` 会展开。
 - `dsh.backend.port`（默认 `0`）：`0` 表示自动选择空闲端口。
 - `dsh.backend.autoStart`（默认 `true`）：激活时自动启动后端。
-- `dsh.backend.cwd`（默认取第一个工作区文件夹）：后端工作目录。
+- `dsh.backend.cwd`（默认取第一个工作区文件夹）：后端工作目录。`${workspaceFolder}` 会展开。
+- `dsh.backend.readyTimeoutMs`（默认 `120000`）：等待 `dsh web:` URL 或 HTTP 就绪的时间，超时后报启动失败。
 - `dsh.backend.env`：后端的额外环境变量（例如 `DEEPSEEK_BASE_URL`）。
+
+spawn 会从扩展宿主环境中去掉 Electron/VS Code 调试器与 IPC 变量，使子 Node 成为普通进程。在 Windows 上，若存在 `node.exe` 则优先于 `node` / `dsh` 的 `.cmd` shim；只有 shim 时才经 `cmd.exe` 运行。
 
 ## 在 deepseek-harness monorepo 中开发
 
@@ -35,11 +38,22 @@ DeepSeek API Key 在内嵌的 **Models** 页中录入，与浏览器 Web UI 完�
 ```json
 {
   "dsh.backend.command": "node",
-  "dsh.backend.args": ["${workspaceFolder}/apps/cli/lib/bin.js", "web"]
+  "dsh.backend.args": ["${workspaceFolder}/apps/cli/lib/bin.js", "web"],
+  "dsh.backend.cwd": "${workspaceFolder}"
 }
 ```
 
-（VS Code 不会在这些字符串设置中展开 `${workspaceFolder}`；请使用绝对路径，或把 `dsh.backend.cwd` 设为仓库根目录并使用相对的 `apps/cli/lib/bin.js`。）
+若要从 TypeScript 源码经 `tsx` 启动（而非已构建的 `lib/`）：
+
+```json
+{
+  "dsh.backend.command": "node",
+  "dsh.backend.args": ["--import", "tsx/esm", "${workspaceFolder}/apps/cli/src/bin.ts", "web"],
+  "dsh.backend.cwd": "${workspaceFolder}"
+}
+```
+
+若源码启动较慢，请提高 `dsh.backend.readyTimeoutMs`。面板一直停在启动页时，使用 **Show Backend Logs**：超时且无进程输出表示子进程从未跑起来；出现 `dsh web:` 行或 HTTP 绑定后，面板应离开该页。
 
 ## 构建
 
