@@ -7,6 +7,7 @@ import {
   coerceArgList,
   DEFAULT_READY_TIMEOUT_MS,
   expandWorkspaceFolder,
+  formatCommandLine,
   mergeExtraEnv,
   resolveReadyTimeoutMs,
   resolveSpawnCommand,
@@ -98,7 +99,7 @@ export class BackendManager implements vscode.Disposable {
     const url = `http://127.0.0.1:${String(port)}`
 
     this.setStatus({ state: 'starting' })
-    this.output.appendLine(`[dsh] launching: ${resolved.file} ${argv.join(' ')}`)
+    this.output.appendLine(`[dsh] launching: ${formatCommandLine(resolved.file, argv)}`)
     if (cwd !== undefined) this.output.appendLine(`[dsh] cwd: ${cwd}`)
     if (resolved.file !== command) this.output.appendLine(`[dsh] resolved executable: ${resolved.file}`)
 

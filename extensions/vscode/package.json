@@ -81,7 +81,7 @@
           "default": [
             "web"
           ],
-          "markdownDescription": "Arguments passed to `#dsh.backend.command#`. Must launch the Harness web server (the `web` subcommand). `--no-open`, `--host 127.0.0.1`, and `--port <port>` are appended automatically when not already present. `${workspaceFolder}` is expanded in each argument."
+          "markdownDescription": "Arguments passed to `#dsh.backend.command#`. Must launch the Harness web server (the `web` subcommand). Each flag and value should be its own array item (`[\"--import\", \"tsx/esm\", \"…/bin.ts\", \"web\"]`). A single item that starts with `-` and contains spaces is split. `--no-open`, `--host 127.0.0.1`, and `--port <port>` are appended automatically when not already present. `${workspaceFolder}` is expanded in each argument."
         },
         "dsh.backend.port": {
           "type": "number",

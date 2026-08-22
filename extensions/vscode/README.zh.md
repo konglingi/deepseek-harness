@@ -22,7 +22,7 @@ DeepSeek API Key 在内嵌的 **Models** 页中录入，与浏览器 Web UI 完�
 ## 设置
 
 - `dsh.backend.command`（默认 `dsh`）：后端可执行文件。需在 `PATH` 中，或指向一个启动器。`${workspaceFolder}` 会展开为第一个工作区文件夹。
-- `dsh.backend.args`（默认 `["web"]`）：传入的参数；必须启动 `web` 服务。`--no-open`/`--host`/`--port` 会自动追加。每个参数中的 `${workspaceFolder}` 会展开。
+- `dsh.backend.args`（默认 `["web"]`）：传入的参数；必须启动 `web` 服务。每个标志与值应各自占一个数组项。以 `-` 开头且含空格的项（例如 `--import tsx/esm file.ts web`）会被拆分；含空格的路径不会。`--no-open`/`--host`/`--port` 会自动追加。每个参数中的 `${workspaceFolder}` 会展开。
 - `dsh.backend.port`（默认 `0`）：`0` 表示自动选择空闲端口。
 - `dsh.backend.autoStart`（默认 `true`）：激活时自动启动后端。
 - `dsh.backend.cwd`（默认取第一个工作区文件夹）：后端工作目录。`${workspaceFolder}` 会展开。
@@ -52,6 +52,8 @@ spawn 会从扩展宿主环境中去掉 Electron/VS Code 调试器与 IPC 变量
   "dsh.backend.cwd": "${workspaceFolder}"
 }
 ```
+
+单个数组项 `--import tsx/esm …/bin.ts web` 也会被拆成上述 token。
 
 若源码启动较慢，请提高 `dsh.backend.readyTimeoutMs`。面板一直停在启动页时，使用 **Show Backend Logs**：超时且无进程输出表示子进程从未跑起来；出现 `dsh web:` 行或 HTTP 绑定后，面板应离开该页。
 

@@ -66,8 +66,11 @@ export interface BackendReadyWatch {
 }
 
 /**
- * Coerce a VS Code setting that should be an argv array. A string is split on
- * whitespace so a pasted command line does not become one character per entry.
+ * Coerce a VS Code setting that should be an argv array. A string is split
+ * with quote-aware tokenization so a pasted command line does not become one
+ * character per entry. An array slot that starts with `-` and contains
+ * whitespace is treated the same way (`--import tsx/esm file.ts web`); a path
+ * slot that contains spaces is left intact.
  *
  * @param value - raw `dsh.backend.args` value.
  * @param fallback - used when `value` is missing or the wrong JSON type.
@@ -75,12 +78,27 @@ export interface BackendReadyWatch {
  */
 export function coerceArgList(value: unknown, fallback: readonly string[]): string[] {
   if (Array.isArray(value)) {
-    return value.map(item => String(item).trim()).filter(item => item.length > 0)
+    return value.flatMap((item) => {
+      const text = String(item).trim()
+      if (text.length === 0) return []
+      if (text.startsWith('-') && /\s/u.test(text)) return tokenizeArgvFragment(text)
+      return [stripWrappingQuotes(text)]
+    })
   }
-  if (typeof value === 'string') {
-    return value.split(/\s+/u).map(token => token.trim()).filter(token => token.length > 0)
-  }
+  if (typeof value === 'string') return tokenizeArgvFragment(value)
   return [...fallback]
+}
+
+/**
+ * Format `file` plus argv for the OutputChannel. Tokens with whitespace or
+ * quotes are double-quoted so a mashed setting is visible as one slot.
+ *
+ * @param file - resolved executable.
+ * @param args - argv passed to `spawn`.
+ * @returns a single log line.
+ */
+export function formatCommandLine(file: string, args: readonly string[]): string {
+  return [file, ...args].map(quoteArgvToken).join(' ')
 }
 
 /**
@@ -340,6 +358,55 @@ export function terminateChild(child: ChildProcess, graceMs: number): void {
     if (child.exitCode === null) child.kill('SIGKILL')
   }, graceMs)
   timer.unref()
+}
+
+/**
+ * Split a command-line fragment on whitespace, dropping wrapping quotes.
+ *
+ * @param value - one settings string or mashed array slot.
+ * @returns argv tokens.
+ */
+function tokenizeArgvFragment(value: string): string[] {
+  const tokens: string[] = []
+  let current = ''
+  let quote: '"' | "'" | undefined
+  for (const ch of value) {
+    if (quote !== undefined) {
+      if (ch === quote) quote = undefined
+      else current += ch
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (/\s/u.test(ch)) {
+      if (current.length > 0) {
+        tokens.push(current)
+        current = ''
+      }
+      continue
+    }
+    current += ch
+  }
+  if (current.length > 0) tokens.push(current)
+  return tokens
+}
+
+function stripWrappingQuotes(text: string): string {
+  if (text.length < 2) return text
+  const start = text[0]
+  const end = text[text.length - 1]
+  if ((start === '"' && end === '"') || (start === "'" && end === "'")) {
+    return text.slice(1, -1)
+  }
+  return text
+}
+
+function quoteArgvToken(token: string): string {
+  if (token.length === 0) return '""'
+  if (!/[\s"]/u.test(token)) return token
+  return `"${token.replaceAll('"', '\\"')}"`
 }
 
 function stripInspectorOptions(value: string): string {

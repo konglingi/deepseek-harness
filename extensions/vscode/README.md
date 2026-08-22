@@ -22,7 +22,7 @@ The DeepSeek API key is entered inside the embedded **Models** page, exactly as 
 ## Settings
 
 - `dsh.backend.command` (default `dsh`): backend executable. Must be on `PATH`, or point at a launcher. `${workspaceFolder}` expands to the first workspace folder.
-- `dsh.backend.args` (default `["web"]`): arguments; must start the `web` server. `--no-open`/`--host`/`--port` are added automatically. `${workspaceFolder}` expands in each argument.
+- `dsh.backend.args` (default `["web"]`): arguments; must start the `web` server. Each flag and value is its own array item. A slot that starts with `-` and contains spaces (for example `--import tsx/esm file.ts web`) is split; a path that contains spaces is not. `--no-open`/`--host`/`--port` are added automatically. `${workspaceFolder}` expands in each argument.
 - `dsh.backend.port` (default `0`): `0` picks a free port.
 - `dsh.backend.autoStart` (default `true`): start the backend on activation.
 - `dsh.backend.cwd` (default first workspace folder): backend working directory. `${workspaceFolder}` expands.
@@ -52,6 +52,8 @@ To launch from TypeScript sources through `tsx` instead of the built `lib/`:
   "dsh.backend.cwd": "${workspaceFolder}"
 }
 ```
+
+A single array item `--import tsx/esm …/bin.ts web` is also split into those tokens.
 
 If a source launch is slow, raise `dsh.backend.readyTimeoutMs`. Use **Show Backend Logs** when the panel stays on the starting page: a timeout with no process output means the child never ran, while a `dsh web:` line or an HTTP bind means the panel should leave that page.
 

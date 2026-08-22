@@ -10,6 +10,7 @@ import {
   DEFAULT_READY_TIMEOUT_MS,
   expandWorkspaceFolder,
   extractReadyUrl,
+  formatCommandLine,
   mergeExtraEnv,
   MIN_READY_TIMEOUT_MS,
   resolveReadyTimeoutMs,
@@ -44,9 +45,37 @@ describe('coerceArgList', () => {
       .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web'])
   })
 
+  it('splits a pasted flag fragment in one array slot, including quoted web', () => {
+    expect(coerceArgList(['--import tsx/esm apps/cli/src/bin.ts "web"'], ['web']))
+      .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web'])
+  })
+
+  it('splits --import from its specifier when they share one slot', () => {
+    expect(coerceArgList(['--import tsx/esm', 'apps/cli/src/bin.ts', 'web'], ['web']))
+      .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web'])
+  })
+
+  it('leaves a path that contains spaces as one token', () => {
+    expect(coerceArgList(['C:\\Program Files\\app\\bin.js', 'web'], ['web']))
+      .toEqual(['C:\\Program Files\\app\\bin.js', 'web'])
+  })
+
   it('uses the fallback for a missing or wrong JSON type', () => {
     expect(coerceArgList(undefined, ['web'])).toEqual(['web'])
     expect(coerceArgList({ web: true }, ['web'])).toEqual(['web'])
+  })
+})
+
+describe('formatCommandLine', () => {
+  it('quotes the executable and any token that contains whitespace', () => {
+    expect(formatCommandLine('C:\\Program Files\\nodejs\\node.EXE', [
+      '--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web',
+    ])).toBe('"C:\\Program Files\\nodejs\\node.EXE" --import tsx/esm apps/cli/src/bin.ts web')
+  })
+
+  it('quotes a mashed token so a bad setting is visible as one slot', () => {
+    expect(formatCommandLine('node', ['--import tsx/esm apps/cli/src/bin.ts web']))
+      .toBe('node "--import tsx/esm apps/cli/src/bin.ts web"')
   })
 })
 

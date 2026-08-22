@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-22-vscode-backend-spawn-readiness.md
-2026-08-22-vscode-backend-spawn-readiness.md: 39fb2bfe466ba2f5add961f63088b3465ff3ea86
-2026-08-22-vscode-backend-spawn-readiness.zh.md: d398d548fa0ec516d3d04a7d4a34793b1248fec6
+2026-08-22-vscode-backend-spawn-readiness.md: 373a12f62ea84115bb9c78b007c021c36c82a54b
+2026-08-22-vscode-backend-spawn-readiness.zh.md: 378db40d0da2e593cf578ae53c8217d55e394a37
