@@ -159,6 +159,12 @@ describe('loadProfile', () => {
     }
     expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.bundles)
       .toEqual([...PROFILE_TEMPLATES.web ?? []])
+    // Every shipped template layers its surface bundle over the shared base.
+    for (const [profile, bundles] of Object.entries(PROFILE_TEMPLATES)) {
+      expect(bundles[0], profile).toBe('@deepseek-ai/dsh-base')
+      expect(bundles.length, profile).toBe(2)
+    }
+    expect(PROFILE_TEMPLATES.editor).toContain('@deepseek-ai/dsh-editor-app')
   })
 
   it('normalizes only the exact installation-owned headless bundle tuple', () => {

@@ -1,0 +1,28 @@
+# The dsh-editor-app bundle patch: the stdio JSON-RPC runtime an editor
+# extension drives, over the dsh-base layer. Applied after dsh-base's insert;
+# rows here override base rows by id, with the profile's own cordis.patch.yml
+# and any --patch overlays still to come.
+#
+# A patch replaces the targeted row's whole `config`, so each row below
+# restates every key it owns.
+#
+# Stdout carries JSON-RPC frames only: this layer mounts no logger, HTTP
+# server, browser roster, or terminal UI. The base agent-plane rows stay
+# mounted (unlike the Web layer, which moves them behind agent presets)
+# because SDK-created agents read the tools, prompt sections, and delegation
+# backends from the global layer.
+
+- id: system-prompt
+  config:
+    persona: >-
+      You are a coding agent powered by the {{model}} model, working inside the user's editor on the project at {{cwd}}. The user sees your progress in the editor's chat view, and the files you read and write are the files open in that editor.
+
+# The editor already watches and rewrites the workspace this runtime reads, and
+# the runtime lives only as long as the editor's client. Module-reload HMR would
+# churn on that traffic for a process nobody is developing against.
+- id: hmr
+  disabled: true
+
+- insert:
+    - id: sdk-jsonrpc-server
+      name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
