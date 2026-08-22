@@ -12,7 +12,7 @@ Status: proposed
 
 在 [extensions/vscode](../../../../extensions/vscode/README.zh.md) 发布一个 VS Code 扩展，复用现有 Web UI 而非重建。扩展承担两项职责：管理一个本地后端进程，并内嵌 Web UI。
 
-扩展启动 `dsh web`（命令可配置），强制附加 `--host 127.0.0.1` 与 `--port`，并通过匹配进程 stdout 的 `dsh web: http://127.0.0.1:<port>` 行获知绑定 URL。随后打开一个 Webview 编辑器面板，其 `<iframe>` 经 `vscode.env.asExternalUri` 加载该 URL，于是未改动的 Web UI 在 VS Code 内运行，并通过其常规的 HTTP + WebSocket `/api` 传输与后端通信（[契约](../../../../packages/host/apiproxy/src/api/rpc.ts)，浏览器入口 [apps/web/src/main.ts](../../../../apps/web/src/main.ts)）。DeepSeek API Key 通过内嵌的 Models 页录入，因此后端无需凭据即可启动。
+扩展启动 `dsh web`（命令可配置），强制附加 `--no-open`、`--host 127.0.0.1` 与 `--port`。当 stdout 匹配 `dsh web: http://127.0.0.1:<port>` 或该 loopback 端口接受 HTTP 时（以先发生者为准），扩展将后端视为就绪（[spawn 与就绪判定](../../implemented/bug-fix/2026-08-22-vscode-backend-spawn-readiness.zh.md)）。随后打开一个 Webview 编辑器面板，其 `<iframe>` 经 `vscode.env.asExternalUri` 加载该 URL，于是未改动的 Web UI 在 VS Code 内运行，并通过其常规的 HTTP + WebSocket `/api` 传输与后端通信（[契约](../../../../packages/host/apiproxy/src/api/rpc.ts)，浏览器入口 [apps/web/src/main.ts](../../../../apps/web/src/main.ts)）。DeepSeek API Key 通过内嵌的 Models 页录入，因此后端无需凭据即可启动。
 
 该扩展是一个独立打包的交付物：由 esbuild 打成单文件 CommonJS 包、将 `vscode` 外部化，仅为依赖安装而加入 workspace。它被刻意排除在 `tsconfig.host.json`/`tsconfig.client.json` 聚合、`tsdown` lib 流水线、`check-workspace-constraints` 的 globs 以及 `packages/*` 的 publint/coverage/`@deepseek-ai/dsh-*` 门禁之外 —— 参照 `website`：一个拥有独立带外构建的私有 workspace 成员。
 

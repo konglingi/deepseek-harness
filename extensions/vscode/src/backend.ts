@@ -1,6 +1,19 @@
-import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import * as vscode from 'vscode'
+import {
+  backendSpawnOptions,
+  buildBackendArgs,
+  coerceArgList,
+  DEFAULT_READY_TIMEOUT_MS,
+  expandWorkspaceFolder,
+  mergeExtraEnv,
+  resolveReadyTimeoutMs,
+  resolveSpawnCommand,
+  sanitizeSpawnEnv,
+  terminateChild,
+  waitForBackendReady,
+} from './launch'
 
 /** Lifecycle state of the managed backend process. */
 type BackendState = 'stopped' | 'starting' | 'ready' | 'error'
@@ -12,18 +25,18 @@ export interface BackendStatus {
   message?: string
 }
 
-// `dsh web` announces its bound address on stdout as `dsh web: http://127.0.0.1:<port>`.
-const READY_PATTERN = /dsh web:\s*(https?:\/\/\S+)/i
 const STOP_GRACE_MS = 2000
 
 /**
  * Owns the lifecycle of the `dsh web` backend the extension embeds. It spawns
- * the process, watches stdout for the readiness URL, mirrors output into an
- * OutputChannel, and exposes start/stop/restart with a single in-flight start.
+ * the process, treats stdout's `dsh web:` URL or loopback HTTP as readiness,
+ * mirrors output into an OutputChannel, and exposes start/stop/restart with a
+ * single in-flight start.
  */
 export class BackendManager implements vscode.Disposable {
-  private child: ChildProcessWithoutNullStreams | undefined
+  private child: ChildProcess | undefined
   private startPromise: Promise<string> | undefined
+  private startAbort: AbortController | undefined
   private currentStatus: BackendStatus = { state: 'stopped' }
   private readonly output: vscode.OutputChannel
   private readonly statusEmitter = new vscode.EventEmitter<BackendStatus>()
@@ -48,7 +61,7 @@ export class BackendManager implements vscode.Disposable {
   /**
    * Ensure a ready backend, starting one if needed.
    *
-   * @returns The backend base URL once stdout reports readiness.
+   * @returns The backend base URL once stdout or HTTP reports readiness.
    */
   ensureStarted(): Promise<string> {
     if (this.currentStatus.state === 'ready' && this.currentStatus.url !== undefined) {
@@ -67,22 +80,34 @@ export class BackendManager implements vscode.Disposable {
 
   private async start(): Promise<string> {
     const config = vscode.workspace.getConfiguration('dsh')
-    const command = config.get<string>('backend.command', 'dsh')
-    const args = [...config.get<string[]>('backend.args', ['web'])]
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    const command = expandWorkspaceFolder(
+      config.get<string>('backend.command', 'dsh').trim(),
+      folder,
+    )
+    const args = coerceArgList(config.get('backend.args'), ['web'])
+      .map(token => expandWorkspaceFolder(token, folder))
     const configuredPort = config.get<number>('backend.port', 0)
     const port = configuredPort > 0 ? configuredPort : await findFreePort()
-    if (!args.includes('--port')) args.push('--port', String(port))
-    if (!args.includes('--host')) args.push('--host', '127.0.0.1')
-    const cwd = resolveCwd(config.get<string>('backend.cwd', ''))
-    const extraEnv = config.get<Record<string, string>>('backend.env', {})
+    const argv = buildBackendArgs(args, port)
+    const cwd = resolveCwd(expandWorkspaceFolder(config.get<string>('backend.cwd', ''), folder))
+    const extraEnv = mergeExtraEnv(config.get('backend.env'))
+    const timeoutMs = resolveReadyTimeoutMs(config.get('backend.readyTimeoutMs', DEFAULT_READY_TIMEOUT_MS))
+    const resolved = resolveSpawnCommand(command)
+    const env = sanitizeSpawnEnv(process.env, extraEnv)
+    const url = `http://127.0.0.1:${String(port)}`
 
     this.setStatus({ state: 'starting' })
-    this.output.appendLine(`[dsh] launching: ${command} ${args.join(' ')}`)
+    this.output.appendLine(`[dsh] launching: ${resolved.file} ${argv.join(' ')}`)
     if (cwd !== undefined) this.output.appendLine(`[dsh] cwd: ${cwd}`)
+    if (resolved.file !== command) this.output.appendLine(`[dsh] resolved executable: ${resolved.file}`)
 
-    let child: ChildProcessWithoutNullStreams
+    const abort = new AbortController()
+    this.startAbort = abort
+
+    let child: ChildProcess
     try {
-      child = spawn(command, args, { cwd, env: { ...process.env, ...extraEnv } })
+      child = spawn(resolved.file, argv, backendSpawnOptions(cwd, env, resolved.shell))
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.output.appendLine(`[dsh] failed to spawn: ${message}`)
@@ -90,71 +115,54 @@ export class BackendManager implements vscode.Disposable {
       throw error instanceof Error ? error : new Error(message)
     }
     this.child = child
-
-    return await new Promise<string>((resolve, reject) => {
-      let settled = false
-      const finishReady = (url: string): void => {
-        settled = true
-        this.setStatus({ state: 'ready', url })
-        resolve(url)
+    const appendOutput = (buffer: Buffer | string): void => {
+      const text = typeof buffer === 'string' ? buffer : buffer.toString('utf8')
+      for (const line of text.split(/\r?\n/u)) {
+        if (line.length > 0) this.output.appendLine(line)
       }
-      const finishError = (message: string): void => {
-        settled = true
-        this.setStatus({ state: 'error', message })
-        reject(new Error(message))
+    }
+    child.stdout?.on('data', appendOutput)
+    child.stderr?.on('data', appendOutput)
+    child.on('exit', (code, exitSignal) => {
+      this.output.appendLine(`[dsh] exited (code=${String(code)} signal=${String(exitSignal)})`)
+      if (this.child === child) this.child = undefined
+      if (this.currentStatus.state === 'ready') {
+        this.setStatus({ state: 'stopped', message: `backend exited (code ${String(code)})` })
       }
-
-      const onData = (buffer: Buffer): void => {
-        const text = buffer.toString('utf8')
-        for (const line of text.split(/\r?\n/)) {
-          if (line.length > 0) this.output.appendLine(line)
-        }
-        if (!settled) {
-          const match = READY_PATTERN.exec(text)
-          if (match !== null) finishReady(match[1])
-        }
-      }
-      child.stdout.on('data', onData)
-      child.stderr.on('data', onData)
-
-      child.on('error', (error) => {
-        this.output.appendLine(`[dsh] process error: ${error.message}`)
-        if (!settled) finishError(error.message)
-      })
-      child.on('exit', (code, signal) => {
-        this.output.appendLine(`[dsh] exited (code=${String(code)} signal=${String(signal)})`)
-        if (this.child === child) this.child = undefined
-        if (settled) {
-          // A ready backend went away: reflect it so the UI can offer a restart.
-          if (this.currentStatus.state === 'ready') {
-            this.setStatus({ state: 'stopped', message: `backend exited (code ${String(code)})` })
-          }
-          return
-        }
-        finishError(`backend exited before reporting readiness (code ${String(code)})`)
-      })
     })
+
+    try {
+      const readyUrl = await waitForBackendReady({
+        child,
+        url,
+        timeoutMs,
+        signal: abort.signal,
+      })
+      this.setStatus({ state: 'ready', url: readyUrl })
+      return readyUrl
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.output.appendLine(`[dsh] ${message}`)
+      if (this.currentStatus.state === 'stopped') throw error instanceof Error ? error : new Error(message)
+      this.setStatus({ state: 'error', message })
+      throw error instanceof Error ? error : new Error(message)
+    }
   }
 
   /** Terminate the backend process if running and mark the manager stopped. */
   stop(): void {
+    this.startAbort?.abort()
+    this.startAbort = undefined
     const child = this.child
     this.child = undefined
     this.startPromise = undefined
-    if (child !== undefined && child.exitCode === null) {
-      child.kill('SIGTERM')
-      const timer = setTimeout(() => {
-        if (child.exitCode === null) child.kill('SIGKILL')
-      }, STOP_GRACE_MS)
-      timer.unref()
-    }
+    if (child !== undefined) terminateChild(child, STOP_GRACE_MS)
     this.setStatus({ state: 'stopped' })
   }
 
   /** Stop the current backend and start a fresh one. */
   async restart(): Promise<string> {
     this.stop()
-    // Give the OS a moment to release the previous port before rebinding.
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, 300)
       timer.unref()
