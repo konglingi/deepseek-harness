@@ -4,7 +4,7 @@
  * env vars — no model, no network, no harness imports. Speaks the runtime's
  * newline-delimited JSON-RPC protocol on stdio: answers `initialize`,
  * `session/prompt` (streaming scripted `session.event` notifications, then
- * `session.finished`, then the response), and `shutdown`.
+ * `session.finished`, then the response), `session/cancel`, and `shutdown`.
  *
  * Script vocabulary (all optional):
  * - `FAKE_TEXT`: assistant text for each turn (default `hello from fake runtime`).
@@ -15,6 +15,7 @@
  * - `FAKE_ECHO_ENV`: comma-separated env names to echo as `name=value` lines in the assistant text.
  * - `FAKE_MALFORMED`: `initialize` returns `{}` (no serverInfo); `prompt` returns `{}` (no accepted).
  * - `FAKE_MALFORMED_PROMPT`: `initialize` is normal; only `prompt` returns `{}` (no accepted).
+ * - `FAKE_MALFORMED_CANCEL`: `session/cancel` returns `{}` (no cancellation outcome).
  * - `FAKE_INIT_ERROR`: `initialize` answers a JSON-RPC error response with code 7.
  * - `FAKE_INIT_ERROR_ONCE_FILE`: fail `initialize` (code 7) only when this
  *   marker file does NOT exist yet, creating it — so the first runtime
@@ -148,6 +149,9 @@ function runTurn(sessionId: string): void {
   }
 }
 
+/** Sessions this runtime has seen a prompt for, i.e. the ones cancel can reach. */
+const prompted = new Set<string>()
+
 function sessionIdOf(params: Record<string, unknown> | undefined): string {
   const value = params?.sessionId
   return typeof value === 'string' ? value : ''
@@ -195,6 +199,7 @@ reader.on('line', (line) => {
       return
     case 'session/prompt': {
       const sessionId = sessionIdOf(frame.params)
+      prompted.add(sessionId)
       const messageId = `fake-user-${seq}`
       event(sessionId, 'agent/inbox/spliced', {
         target: 'next-turn',
@@ -222,6 +227,13 @@ reader.on('line', (line) => {
       respond({ messageId })
       return
     }
+    case 'session/cancel':
+      if (env.FAKE_MALFORMED_CANCEL !== undefined) {
+        respond({})
+        return
+      }
+      respond({ cancelled: prompted.has(sessionIdOf(frame.params)) })
+      return
     case 'shutdown':
       respond({})
       // An EOF-ignoring fake also refuses the protocol exit, so the client's

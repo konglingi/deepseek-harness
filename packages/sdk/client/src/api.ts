@@ -192,6 +192,17 @@ export class HarnessSession {
       notifications,
     }
   }
+
+  /**
+   * Cancel this session's live turn. A concurrent {@link run} settles on the
+   * idle status the cancellation produces, with the events collected so far.
+   * @returns whether a live agent was cancelled; `false` before the first
+   * prompt created the runtime-side agent.
+   */
+  async cancel(): Promise<boolean> {
+    await this.harness.start()
+    return this.harness.client.cancel(this.id)
+  }
 }
 
 /**
