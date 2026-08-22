@@ -62,17 +62,29 @@ async function runTurn(
 ): Promise<void> {
   const renderer = new TurnRenderer(chatSink(stream))
   const subscription = runtime.subscribe(sessionId)
-  const cancellation = token.onCancellationRequested(() => {
-    void runtime.cancel(sessionId).catch(() => {
-      // A cancel that cannot reach the runtime is already visible as the
-      // transport failure this turn's next await rejects with.
+  let cancellation: vscode.Disposable | undefined
+  // Stop cancels the runtime-side turn, and this request stops waiting for it:
+  // the abort still costs a round trip, and a wedged runtime must not hold the
+  // chat's spinner. The aborted `turn/end` remains in the session log.
+  const stopped = new Promise<'stopped'>((resolve) => {
+    if (token.isCancellationRequested) resolve('stopped')
+    cancellation = token.onCancellationRequested(() => {
+      void runtime.cancel(sessionId).catch(() => {
+        // A cancel that cannot reach the runtime is already visible as the
+        // transport failure this turn's next await rejects with.
+      })
+      resolve('stopped')
     })
   })
   try {
     const messageId = await runtime.prompt(sessionId, buildPromptBlocks(promptInput(request)))
     let received = false
     for (;;) {
-      const notification = await subscription.next()
+      const notification = await Promise.race([subscription.next(), stopped])
+      if (notification === 'stopped') {
+        stream.markdown('\n\n_Canceled._\n')
+        return
+      }
       // Everything before the durable receipt belongs to earlier work on this
       // session, so this turn starts rendering at its own message.
       if (!received) {
@@ -86,7 +98,7 @@ async function runTurn(
     stream.markdown(`\n\n**DeepSeek Harness error:** ${errorMessage(error)}\n`)
     stream.button({ command: 'dsh.showLogs', title: 'Show Runtime Logs' })
   } finally {
-    cancellation.dispose()
+    cancellation?.dispose()
     subscription.close()
   }
 }
