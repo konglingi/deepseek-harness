@@ -1,7 +1,7 @@
 {
   "name": "dsh-vscode",
   "displayName": "DeepSeek Harness",
-  "description": "Run the DeepSeek Harness agent inside VS Code. The extension manages a local dsh backend and embeds the full Harness Web UI.",
+  "description": "Run the DeepSeek Harness agent inside VS Code. The extension manages a local dsh runtime and answers as the @dsh chat participant over the project you have open.",
   "version": "0.0.1",
   "private": true,
   "publisher": "deepseek-ai",
@@ -21,96 +21,92 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onView:dsh.landing",
     "onStartupFinished"
   ],
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "dsh",
-          "title": "DeepSeek Harness",
-          "icon": "media/harness.svg"
-        }
-      ]
-    },
-    "views": {
-      "dsh": [
-        {
-          "id": "dsh.landing",
-          "name": "DeepSeek Harness",
-          "type": "webview"
-        }
-      ]
-    },
+    "chatParticipants": [
+      {
+        "id": "deepseek.harness",
+        "name": "dsh",
+        "fullName": "DeepSeek Harness",
+        "description": "Ask the DeepSeek Harness agent about the project you have open",
+        "isSticky": true
+      }
+    ],
     "commands": [
       {
-        "command": "dsh.open",
-        "title": "Open Panel",
+        "command": "dsh.newSession",
+        "title": "New Session",
         "category": "DeepSeek Harness"
       },
       {
-        "command": "dsh.restartBackend",
-        "title": "Restart Backend",
+        "command": "dsh.restartRuntime",
+        "title": "Restart Runtime",
         "category": "DeepSeek Harness"
       },
       {
-        "command": "dsh.stopBackend",
-        "title": "Stop Backend",
+        "command": "dsh.stopRuntime",
+        "title": "Stop Runtime",
         "category": "DeepSeek Harness"
       },
       {
         "command": "dsh.showLogs",
-        "title": "Show Backend Logs",
+        "title": "Show Runtime Logs",
         "category": "DeepSeek Harness"
       }
     ],
     "configuration": {
       "title": "DeepSeek Harness",
       "properties": {
-        "dsh.backend.command": {
+        "dsh.runtime.command": {
           "type": "string",
           "default": "dsh",
-          "markdownDescription": "Executable used to launch the backend. Defaults to `dsh` (must be on PATH). `${workspaceFolder}` is expanded to the first workspace folder. When developing inside the deepseek-harness monorepo, set this to `node` and use `#dsh.backend.args#` to point at the workspace CLI."
+          "markdownDescription": "Executable used to launch the runtime. Defaults to `dsh` (must be on PATH). `${workspaceFolder}` is expanded to the first workspace folder. When developing inside the deepseek-harness monorepo, set this to `node` and use `#dsh.runtime.args#` to point at the workspace CLI."
         },
-        "dsh.backend.args": {
+        "dsh.runtime.args": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [
-            "web"
+            "--profile",
+            "editor"
           ],
-          "markdownDescription": "Arguments passed to `#dsh.backend.command#`. Must launch the Harness web server (the `web` subcommand). `--no-open`, `--host 127.0.0.1`, and `--port <port>` are appended automatically when not already present. `${workspaceFolder}` is expanded in each argument."
+          "markdownDescription": "Arguments passed to `#dsh.runtime.command#`. Must launch a runtime that serves the Harness SDK protocol on stdio — the `editor` profile does. Each flag and value should be its own array item (`[\"--import\", \"tsx/esm\", \"…/bin.ts\", \"--profile\", \"editor\"]`). A single item that starts with `-` and contains spaces is split. `${workspaceFolder}` is expanded in each argument."
         },
-        "dsh.backend.port": {
-          "type": "number",
-          "default": 0,
-          "markdownDescription": "Port for the backend web server. `0` picks a free port automatically."
-        },
-        "dsh.backend.autoStart": {
+        "dsh.runtime.autoStart": {
           "type": "boolean",
           "default": true,
-          "description": "Start the backend automatically when the extension activates."
+          "description": "Start the runtime when the extension activates instead of waiting for the first chat request."
         },
-        "dsh.backend.cwd": {
+        "dsh.runtime.cwd": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Working directory for the backend process. Empty uses the first open workspace folder, so the in-app directory picker starts there. `${workspaceFolder}` is expanded."
+          "markdownDescription": "Working directory for the runtime process, which is also the workspace its file tools and sandbox policy resolve against. Empty uses the first open workspace folder. `${workspaceFolder}` is expanded."
         },
-        "dsh.backend.readyTimeoutMs": {
+        "dsh.runtime.handshakeTimeoutMs": {
           "type": "number",
           "default": 120000,
           "minimum": 1000,
-          "markdownDescription": "How long to wait for the backend to print its `dsh web:` URL or accept HTTP on the bound loopback port before reporting a start failure. Increase this for a slow source (`tsx`) launch."
+          "markdownDescription": "How long to wait for the runtime to answer the SDK `initialize` handshake before reporting a start failure. Increase this for a slow source (`tsx`) launch."
         },
-        "dsh.backend.env": {
+        "dsh.runtime.env": {
           "type": "object",
           "default": {},
           "additionalProperties": {
             "type": "string"
           },
-          "markdownDescription": "Extra environment variables for the backend process (for example `DEEPSEEK_BASE_URL`). The API key is normally entered in the embedded Models page instead."
+          "markdownDescription": "Extra environment variables for the runtime process, for example `DEEPSEEK_API_KEY` or `DEEPSEEK_BASE_URL`. The runtime also reads the credentials it manages under `$DSH_HOME` and a project `.env`."
+        },
+        "dsh.model.provider": {
+          "type": "string",
+          "default": "deepseek-official",
+          "markdownDescription": "Provider route every session runs on, sent as `initialize.provider`. The runtime must have an adapter registered for it."
+        },
+        "dsh.model.name": {
+          "type": "string",
+          "default": "deepseek-v4-flash",
+          "markdownDescription": "Model every session runs on, sent as `initialize.model`."
         }
       }
     }

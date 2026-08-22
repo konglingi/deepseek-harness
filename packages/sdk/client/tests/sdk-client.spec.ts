@@ -126,6 +126,24 @@ describe('DeepSeekHarness', () => {
     await harness.close()
   })
 
+  it('cancels a session the runtime knows and reports an unknown one as uncancelled', async () => {
+    const harness = harnessWith()
+    const session = harness.session('cancel-me')
+
+    // Before the first prompt the runtime holds no agent for this id.
+    expect(await session.cancel()).toBe(false)
+    await session.run('start something')
+    expect(await session.cancel()).toBe(true)
+    await harness.close()
+  })
+
+  it('rejects a malformed cancel result as a protocol error', async () => {
+    const harness = harnessWith({ FAKE_MALFORMED_CANCEL: '1' })
+    await expect(harness.session('any').cancel())
+      .rejects.toThrow(/session\/cancel returned no cancellation outcome/u)
+    await harness.close()
+  })
+
   it('keeps events root-scoped while streaming notifications for the session tree', async () => {
     const harness = harnessWith({ FAKE_SUBAGENT: '1' })
     const seen: HarnessNotification[] = []

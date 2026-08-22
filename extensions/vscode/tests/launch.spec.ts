@@ -1,52 +1,62 @@
-import { EventEmitter } from 'node:events'
-import { createServer } from 'node:http'
 import { join } from 'node:path'
-import { PassThrough } from 'node:stream'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  backendSpawnOptions,
-  buildBackendArgs,
   coerceArgList,
-  DEFAULT_READY_TIMEOUT_MS,
+  DEFAULT_HANDSHAKE_TIMEOUT_MS,
   expandWorkspaceFolder,
-  extractReadyUrl,
+  formatCommandLine,
   mergeExtraEnv,
-  MIN_READY_TIMEOUT_MS,
-  resolveReadyTimeoutMs,
+  MIN_HANDSHAKE_TIMEOUT_MS,
+  resolveHandshakeTimeoutMs,
   resolveSpawnCommand,
+  runtimeSpawnOptions,
   sanitizeSpawnEnv,
-  waitForBackendReady,
 } from '../src/launch.ts'
 
-function fakeChild(): {
-  child: EventEmitter & { stdout: PassThrough; stderr: PassThrough }
-  stdout: PassThrough
-  stderr: PassThrough
-} {
-  const stdout = new PassThrough()
-  const stderr = new PassThrough()
-  const child = Object.assign(new EventEmitter(), { stdout, stderr })
-  return { child, stdout, stderr }
-}
-
-const failingFetch: typeof fetch = async () => {
-  throw new Error('backend not listening')
-}
+const DEFAULT_ARGS = ['--profile', 'editor']
 
 describe('coerceArgList', () => {
   it('trims and drops empty array entries', () => {
-    expect(coerceArgList(['', ' --import ', 'tsx/esm', 'web', ' '], ['web']))
-      .toEqual(['--import', 'tsx/esm', 'web'])
+    expect(coerceArgList(['', ' --import ', 'tsx/esm', '--profile', 'editor', ' '], DEFAULT_ARGS))
+      .toEqual(['--import', 'tsx/esm', '--profile', 'editor'])
   })
 
   it('splits a pasted command-line string instead of spreading characters', () => {
-    expect(coerceArgList('--import tsx/esm apps/cli/src/bin.ts web', ['web']))
-      .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web'])
+    expect(coerceArgList('--import tsx/esm apps/cli/src/bin.ts --profile editor', DEFAULT_ARGS))
+      .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--profile', 'editor'])
+  })
+
+  it('splits a pasted flag fragment in one array slot, including a quoted value', () => {
+    expect(coerceArgList(['--import tsx/esm apps/cli/src/bin.ts --profile "editor"'], DEFAULT_ARGS))
+      .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--profile', 'editor'])
+  })
+
+  it('splits --import from its specifier when they share one slot', () => {
+    expect(coerceArgList(['--import tsx/esm', 'apps/cli/src/bin.ts', '--profile', 'editor'], DEFAULT_ARGS))
+      .toEqual(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--profile', 'editor'])
+  })
+
+  it('leaves a path that contains spaces as one token', () => {
+    expect(coerceArgList(['C:\\Program Files\\app\\bin.js', '--profile', 'editor'], DEFAULT_ARGS))
+      .toEqual(['C:\\Program Files\\app\\bin.js', '--profile', 'editor'])
   })
 
   it('uses the fallback for a missing or wrong JSON type', () => {
-    expect(coerceArgList(undefined, ['web'])).toEqual(['web'])
-    expect(coerceArgList({ web: true }, ['web'])).toEqual(['web'])
+    expect(coerceArgList(undefined, DEFAULT_ARGS)).toEqual(DEFAULT_ARGS)
+    expect(coerceArgList({ profile: 'editor' }, DEFAULT_ARGS)).toEqual(DEFAULT_ARGS)
+  })
+})
+
+describe('formatCommandLine', () => {
+  it('quotes the executable and any token that contains whitespace', () => {
+    expect(formatCommandLine('C:\\Program Files\\nodejs\\node.EXE', [
+      '--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--profile', 'editor',
+    ])).toBe('"C:\\Program Files\\nodejs\\node.EXE" --import tsx/esm apps/cli/src/bin.ts --profile editor')
+  })
+
+  it('quotes a mashed token so a bad setting is visible as one slot', () => {
+    expect(formatCommandLine('node', ['--import tsx/esm apps/cli/src/bin.ts --profile editor']))
+      .toBe('node "--import tsx/esm apps/cli/src/bin.ts --profile editor"')
   })
 })
 
@@ -62,31 +72,16 @@ describe('expandWorkspaceFolder', () => {
   })
 })
 
-describe('buildBackendArgs', () => {
-  it('appends --no-open, --port, and --host when the user argv omits them', () => {
-    expect(buildBackendArgs(['--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web'], 64195))
-      .toEqual([
-        '--import', 'tsx/esm', 'apps/cli/src/bin.ts', 'web',
-        '--no-open', '--port', '64195', '--host', '127.0.0.1',
-      ])
-  })
-
-  it('does not duplicate flags the user already supplied', () => {
-    expect(buildBackendArgs(['web', '--no-open', '--port', '3080', '--host', '127.0.0.1'], 9))
-      .toEqual(['web', '--no-open', '--port', '3080', '--host', '127.0.0.1'])
-  })
-})
-
-describe('resolveReadyTimeoutMs', () => {
+describe('resolveHandshakeTimeoutMs', () => {
   it('keeps a finite timeout at or above the minimum', () => {
-    expect(resolveReadyTimeoutMs(5_000)).toBe(5_000)
-    expect(resolveReadyTimeoutMs(MIN_READY_TIMEOUT_MS)).toBe(MIN_READY_TIMEOUT_MS)
+    expect(resolveHandshakeTimeoutMs(5_000)).toBe(5_000)
+    expect(resolveHandshakeTimeoutMs(MIN_HANDSHAKE_TIMEOUT_MS)).toBe(MIN_HANDSHAKE_TIMEOUT_MS)
   })
 
   it('falls back when the setting is missing, non-finite, or too small', () => {
-    expect(resolveReadyTimeoutMs(undefined)).toBe(DEFAULT_READY_TIMEOUT_MS)
-    expect(resolveReadyTimeoutMs(Number.NaN)).toBe(DEFAULT_READY_TIMEOUT_MS)
-    expect(resolveReadyTimeoutMs(500)).toBe(DEFAULT_READY_TIMEOUT_MS)
+    expect(resolveHandshakeTimeoutMs(undefined)).toBe(DEFAULT_HANDSHAKE_TIMEOUT_MS)
+    expect(resolveHandshakeTimeoutMs(Number.NaN)).toBe(DEFAULT_HANDSHAKE_TIMEOUT_MS)
+    expect(resolveHandshakeTimeoutMs(500)).toBe(DEFAULT_HANDSHAKE_TIMEOUT_MS)
   })
 })
 
@@ -176,110 +171,14 @@ describe('resolveSpawnCommand', () => {
   })
 })
 
-describe('backendSpawnOptions', () => {
-  it('ignores stdin, pipes stdio, and hides the Windows console', () => {
-    expect(backendSpawnOptions('/work', { PATH: '/bin' }, false)).toEqual({
+describe('runtimeSpawnOptions', () => {
+  it('pipes every stream, because stdin carries the protocol', () => {
+    expect(runtimeSpawnOptions('/work', { PATH: '/bin' }, false)).toEqual({
       cwd: '/work',
       env: { PATH: '/bin' },
       shell: false,
       windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
-  })
-})
-
-describe('extractReadyUrl', () => {
-  it('captures the loopback URL and stops before a LAN suffix', () => {
-    expect(extractReadyUrl('dsh web: http://127.0.0.1:4567 (LAN: http://192.168.1.5:4567)'))
-      .toBe('http://127.0.0.1:4567')
-  })
-
-  it('returns undefined when the ready line is absent', () => {
-    expect(extractReadyUrl('dsh web: opening the default browser; pass --no-open to disable'))
-      .toBeUndefined()
-  })
-})
-
-describe('waitForBackendReady', () => {
-  const servers: Array<ReturnType<typeof createServer>> = []
-
-  afterEach(async () => {
-    await Promise.all(servers.splice(0).map(server => new Promise<void>((resolve, reject) => {
-      server.close(error => error === undefined ? resolve() : reject(error))
-    })))
-  })
-
-  it('resolves from a ready line split across stdout chunks', async () => {
-    const { child, stdout } = fakeChild()
-    const pending = waitForBackendReady({
-      child,
-      url: 'http://127.0.0.1:9',
-      timeoutMs: 2_000,
-      fetchImpl: failingFetch,
-    })
-    stdout.write('dsh web: ')
-    stdout.write('http://127.0.0.1:64195\n')
-    await expect(pending).resolves.toBe('http://127.0.0.1:64195')
-  })
-
-  it('resolves from loopback HTTP when stdout never prints the ready line', async () => {
-    const server = createServer((_request, response) => {
-      response.writeHead(200)
-      response.end('ok')
-    })
-    servers.push(server)
-    const port = await new Promise<number>((resolve) => {
-      server.listen(0, '127.0.0.1', () => {
-        const address = server.address()
-        if (address === null || typeof address === 'string') throw new Error('expected a TCP address')
-        resolve(address.port)
-      })
-    })
-    const { child } = fakeChild()
-    await expect(waitForBackendReady({
-      child,
-      url: `http://127.0.0.1:${String(port)}`,
-      timeoutMs: 3_000,
-      pollIntervalMs: 50,
-    })).resolves.toBe(`http://127.0.0.1:${String(port)}`)
-  })
-
-  it('rejects with a no-output timeout when neither stdout nor HTTP reports ready', async () => {
-    const { child } = fakeChild()
-    const error = await waitForBackendReady({
-      child,
-      url: 'http://127.0.0.1:1',
-      timeoutMs: 200,
-      pollIntervalMs: 40,
-      fetchImpl: failingFetch,
-    }).then(() => { throw new Error('unexpected resolve') }, (reason: unknown) => reason)
-    expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toContain('no process output')
-  })
-
-  it('rejects when the process exits before readiness', async () => {
-    const { child } = fakeChild()
-    const pending = waitForBackendReady({
-      child,
-      url: 'http://127.0.0.1:1',
-      timeoutMs: 2_000,
-      fetchImpl: failingFetch,
-    })
-    child.emit('exit', 1, null)
-    await expect(pending).rejects.toThrow('backend exited before reporting readiness (code 1 signal null)')
-  })
-
-  it('rejects as cancelled when the caller aborts', async () => {
-    const { child } = fakeChild()
-    const abort = new AbortController()
-    const pending = waitForBackendReady({
-      child,
-      url: 'http://127.0.0.1:1',
-      timeoutMs: 5_000,
-      signal: abort.signal,
-      fetchImpl: failingFetch,
-    })
-    abort.abort()
-    await expect(pending).rejects.toThrow('backend start cancelled')
   })
 })

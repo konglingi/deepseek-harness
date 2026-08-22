@@ -16,6 +16,8 @@ export type {
   InitializeParams,
   InitializeResult,
   SdkRunStatus,
+  SessionCancelParams,
+  SessionCancelResult,
   SessionEventNotification,
   SessionStatusNotification,
   SessionPromptParams,

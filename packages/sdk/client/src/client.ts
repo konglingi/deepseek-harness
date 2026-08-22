@@ -18,6 +18,7 @@ import {
   JsonRpcResponseError,
   type InitializeParams,
   type InitializeResult,
+  type SessionCancelParams,
   type SessionPromptParams,
 } from '@deepseek-ai/dsh-sdk-protocol'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
@@ -177,9 +178,9 @@ class NotificationSubscriptionImpl implements NotificationSubscription {
  *
  * The subprocess starts lazily on {@link start} and is owned by this instance
  * until {@link close}, which requests protocol `shutdown` and then walks the
- * shared EOF → SIGTERM → SIGKILL dispose ladder to quiescence. There is no
- * wire-level cancel: a timed-out request stays running server-side until the
- * runtime is closed.
+ * shared EOF → SIGTERM → SIGKILL dispose ladder to quiescence. {@link cancel}
+ * interrupts a session's live turn; a timed-out request of any other method
+ * stays running server-side until the runtime is closed.
  */
 export class HarnessClient {
   private child: ChildProcess | undefined
@@ -287,6 +288,21 @@ export class HarnessClient {
       throw new SdkProtocolError(`session/prompt returned no message id: ${JSON.stringify(result)}`)
     }
     return result.messageId
+  }
+
+  /**
+   * Cancel whatever the named session is running and drop its pending input.
+   * @param sessionId - target session; an id the runtime holds no live agent
+   * for cancels nothing.
+   * @returns whether a live agent was cancelled.
+   */
+  async cancel(sessionId: string): Promise<boolean> {
+    const params: SessionCancelParams = { sessionId }
+    const result = await this.request('session/cancel', { ...params })
+    if (!isRecord(result) || typeof result.cancelled !== 'boolean') {
+      throw new SdkProtocolError(`session/cancel returned no cancellation outcome: ${JSON.stringify(result)}`)
+    }
+    return result.cancelled
   }
 
   /**

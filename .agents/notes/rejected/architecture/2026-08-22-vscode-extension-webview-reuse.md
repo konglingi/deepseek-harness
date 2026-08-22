@@ -1,6 +1,6 @@
 # Agent Note: VS Code extension reuses the Web UI over a managed backend
 
-Status: proposed
+Status: rejected — booting a web server and serving the plugin-composed React client before the first prompt is the slowest possible editor start, and a cross-origin iframe cannot reach the open project, the active editor, or `acquireVsCodeApi`; superseded by the [native chat participant](../../implemented/architecture/2026-08-22-vscode-native-chat-over-sdk-jsonrpc.md)
 
 English | [中文](2026-08-22-vscode-extension-webview-reuse.zh.md)
 

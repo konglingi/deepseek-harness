@@ -209,6 +209,36 @@ describe('HarnessSdkJsonRpcServer', () => {
     expect(otherHandle.dispose).toHaveBeenCalledOnce()
   })
 
+  it('cancels the live agent of a prompted session and nothing else', async () => {
+    const cancel = vi.fn<Agent['cancel']>()
+    const agent = ({
+      id: SessionId('live'),
+      followup: vi.fn<Agent['followup']>(),
+      cancel,
+    } satisfies Pick<Agent, 'id' | 'followup' | 'cancel'>) as unknown as Agent
+    const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
+    const ctx = {
+      on: vi.fn(() => () => undefined),
+      agents: {
+        create: vi.fn(async () => handle),
+        get: (id: SessionId) => (String(id) === 'live' ? agent : undefined),
+      },
+      get: () => undefined,
+    } as unknown as Context
+    const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
+
+    expect(await server.handleRequest('session/cancel', { sessionId: 'live' })).toEqual({ cancelled: false })
+    expect(cancel).not.toHaveBeenCalled()
+
+    await server.prompt({ sessionId: 'live', contentBlocks: [{ type: 'text', text: 'work' }] })
+
+    expect(await server.handleRequest('session/cancel', { sessionId: 'live' })).toEqual({ cancelled: true })
+    expect(cancel).toHaveBeenCalledExactlyOnceWith({ kind: 'user' })
+    expect(await server.handleRequest('session/cancel', { sessionId: 'never-prompted' })).toEqual({ cancelled: false })
+    expect(cancel).toHaveBeenCalledOnce()
+    await server.shutdown()
+  })
+
   it('rejects a prompt for a session whose agent was disposed outside the server', async () => {
     const followup = vi.fn<Agent['followup']>()
     const agent = ({
